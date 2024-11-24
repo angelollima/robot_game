@@ -9,7 +9,7 @@ PORT = 2024
 pygame.init()
 
 # Screen dimensions
-screen_width, screen_height = 800, 600
+screen_width, screen_height = 900, 700
 screen = pygame.display.set_mode((screen_width, screen_height))
 
 # Colors
@@ -30,11 +30,11 @@ class Robot(pygame.sprite.Sprite):
     def __init__(self):
         super(Robot, self).__init__()
         original_image = pygame.image.load("robot.png")
-        self.image = pygame.transform.scale(original_image, (800, 600))
+        self.image = pygame.transform.scale(original_image, (500, 400))
         self.rect = self.image.get_rect()
         self.rect.center = (screen_width // 2, screen_height // 1.2)
         self.base_speed = 10
-        self.run_speed = 20
+        self.run_speed = 25
 
     def update(self, actions):
         speed = self.base_speed
