@@ -55,7 +55,7 @@ class Robot(pygame.sprite.Sprite):
     def dodge(self, direction):
         if direction == "left" and self.rect.left > 50:
             self.rect.x -= 50
-        elif direction == "right" and self.rect.right < screen_width - 50:
+        elif direction == "right" and self.rect.right < screen_width:
             self.rect.x += 50
 
 
