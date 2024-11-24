@@ -33,22 +33,30 @@ class Robot(pygame.sprite.Sprite):
         self.image = pygame.transform.scale(original_image, (800, 600))
         self.rect = self.image.get_rect()
         self.rect.center = (screen_width // 2, screen_height // 1.2)
-        self.direction = "UP"
+        self.base_speed = 10
+        self.run_speed = 20
 
-    def update(self, command):
-        if command:
-            if command == "up":
-                self.rect.y -= 10
-                self.direction = "up"
-            elif command == "down":
-                self.rect.y += 10
-                self.direction = "down"
-            elif command == "left":
-                self.rect.x -= 10
-                self.direction = "left"
-            elif command == "right":
-                self.rect.x += 10
-                self.direction = "right"
+    def update(self, actions):
+        speed = self.base_speed
+        if "run" in actions:
+            speed = self.run_speed
+            actions.remove("run")  # Remove 'run' para evitar conflito com direções
+
+        for action in actions:
+            if action == "up" and self.rect.top > 0:
+                self.rect.y -= speed
+            elif action == "down" and self.rect.bottom < screen_height:
+                self.rect.y += speed
+            elif action == "left" and self.rect.left > 0:
+                self.rect.x -= speed
+            elif action == "right" and self.rect.right < screen_width:
+                self.rect.x += speed
+
+    def dodge(self, direction):
+        if direction == "left" and self.rect.left > 50:
+            self.rect.x -= 50
+        elif direction == "right" and self.rect.right < screen_width - 50:
+            self.rect.x += 50
 
 
 # Initialize robot
@@ -73,12 +81,11 @@ def receive_commands():
         try:
             data, _ = sock.recvfrom(4096)
             with command_lock:
-
-                res = data.decode("utf-8").strip().lower().split(";")
-                if res[0] == "controle":
-                    current_command = res[1]
+                command_parts = data.decode("utf-8").strip().lower().split(";")
+                if len(command_parts) == 3 and command_parts[1] == "controle":
+                    current_command = command_parts[2].split(",")
                 else:
-                    current_command = None
+                    current_command = []
         except BlockingIOError:
             continue
 
@@ -96,13 +103,17 @@ while running:
     # Get the latest command
     with command_lock:
         command_to_use = current_command
-        current_command = None  # Reset command after using
+        current_command = []  # Reset command after using
 
     # Clear the screen with black
     screen.blit(background_image, (0, 0))
     # Update and draw all sprites
     if command_to_use:
-        robot.update(command_to_use)
+        if "dodge" in command_to_use:
+            direction = "left" if "left" in command_to_use else "right"
+            robot.dodge(direction)
+        else:
+            robot.update(command_to_use)
     all_sprites.draw(screen)
 
     # Update the display
