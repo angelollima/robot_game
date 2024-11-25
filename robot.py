@@ -32,7 +32,7 @@ class Robot(pygame.sprite.Sprite):
         original_image = pygame.image.load("robot.png")
         self.image = pygame.transform.scale(original_image, (500, 400))
         self.rect = self.image.get_rect()
-        self.rect.center = (screen_width // 2, screen_height // 1.2)
+        self.rect.center = (screen_width // 2, screen_height // 2)
         self.base_speed = 10
         self.run_speed = 25
 
@@ -43,14 +43,20 @@ class Robot(pygame.sprite.Sprite):
             actions.remove("run")  # Remove 'run' para evitar conflito com direções
 
         for action in actions:
+            print(f"Processing action: {action}")  # Debug
             if action == "up" and self.rect.top > 0:
+                print("Moving up")
                 self.rect.y -= speed
             elif action == "down" and self.rect.bottom < screen_height:
+                print("Moving down")
                 self.rect.y += speed
             elif action == "left" and self.rect.left > 0:
+                print("Moving left")
                 self.rect.x -= speed
             elif action == "right" and self.rect.right < screen_width:
+                print("Moving right")
                 self.rect.x += speed
+
 
     def dodge(self, direction):
         if direction == "left" and self.rect.left > 50:
