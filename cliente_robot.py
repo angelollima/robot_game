@@ -26,23 +26,20 @@ def jump_with_direction(direcao):
         print("Direção inválida para jump. Use 'right' ou 'left'.")
         return
 
-    # Movimento para cima com deslocamento lateral
     for _ in range(altura):
         mensagem = "controle;up"
         sock.sendto(mensagem.encode(), endereco_servidor)
-        sleep(0.5)
+        sleep(0.05)
+
+    for _ in range(distancia // 2):
         mensagem = f"controle;{direcao}"
         sock.sendto(mensagem.encode(), endereco_servidor)
-        sleep(0.5)
+        sleep(0.05)
 
-    # Movimento para baixo com deslocamento lateral
     for _ in range(altura):
         mensagem = "controle;down"
         sock.sendto(mensagem.encode(), endereco_servidor)
-        sleep(0.5)
-        mensagem = f"controle;{direcao}"
-        sock.sendto(mensagem.encode(), endereco_servidor)
-        sleep(0.5)
+        sleep(0.05)
 
 
 def run(comando, velocidade):
