@@ -35,6 +35,12 @@ class Robot(pygame.sprite.Sprite):
         self.rect.center = (screen_width // 2, screen_height // 1.2)
         self.direction = "UP"
 
+    def get_screen_dimensions(self):
+        return screen_width, screen_height
+
+    def get_robot_position(self):
+        return self.rect.x, self.rect.y
+
     def update(self, command):
         if command:
             if command == "up":
