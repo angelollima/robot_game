@@ -64,13 +64,13 @@ class RobotSocketController:
         Returns:
             bool: True se o movimento está dentro dos limites, False caso contrário.
         """
-        if direction == "up" and self.pos_y - 10 >= 0:
+        if direction == "up" and self.pos_y - 45 >= 0:
             return True
-        elif direction == "down" and self.pos_y + 10 <= self.screen_height:
+        elif direction == "down" and self.pos_y + 45 <= self.screen_height:
             return True
-        elif direction == "left" and self.pos_x - 10 >= 0:
+        elif direction == "left" and self.pos_x - 45 >= 0:
             return True
-        elif direction == "right" and self.pos_x + 10 <= self.screen_width:
+        elif direction == "right" and self.pos_x + 45 <= self.screen_width:
             return True
         return False
 
