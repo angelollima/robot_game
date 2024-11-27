@@ -87,7 +87,13 @@ def dodge(comando):
 try:
     while True:
         acao = input(
-            "Entre com o comando (up, down, left, right, jump, (dodge,right), (dodge,left) ou para sair (q)): "
+            "Entre com o comando:\n"
+            "Opções:\n"
+            "- Direcionais: up, down, left, right\n"
+            "- Saltos: jump, jump,right, jump,left\n"
+            "- Esquivas: dodge,right, dodge,left\n"
+            "- Corrida: run,right,<velocidade>, run,left,<velocidade>\n"
+            "'q' para sair: "
         ).strip().lower()
         if acao == 'q':
             break
