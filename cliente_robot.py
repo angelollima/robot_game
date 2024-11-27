@@ -7,7 +7,8 @@ class RobotSocketController:
     """
     Controlador de robô utilizando comunicação via socket UDP.
 
-    Gerencia movimentos e comandos de controle através de uma conexão UDP.
+    Gerencia movimentos e comandos de controle através de uma conexão UDP,
+    garantindo que os movimentos do robô respeitem os limites da tela.
     """
 
     def __init__(
@@ -49,16 +50,53 @@ class RobotSocketController:
             self.logger.error(f"Erro ao configurar socket: {e}")
             raise
 
+        # Posição inicial do robô e limites da tela
+        self.pos_x, self.pos_y = 400, 500  # Centrando na tela (800x600)
+        self.screen_width, self.screen_height = 800, 600
+
+    def _is_within_bounds(self, direction: str) -> bool:
+        """
+        Verifica se o movimento mantém o robô dentro dos limites da tela.
+
+        Args:
+            direction (str): Direção do movimento.
+
+        Returns:
+            bool: True se o movimento está dentro dos limites, False caso contrário.
+        """
+        if direction == "up" and self.pos_y - 10 >= 0:
+            return True
+        elif direction == "down" and self.pos_y + 10 <= self.screen_height:
+            return True
+        elif direction == "left" and self.pos_x - 10 >= 0:
+            return True
+        elif direction == "right" and self.pos_x + 10 <= self.screen_width:
+            return True
+        return False
+
     def _send_message(self, mensagem: str) -> None:
         """
-        Envia uma mensagem para o servidor.
+        Envia uma mensagem para o servidor, verificando os limites antes.
 
         Args:
             mensagem (str): Mensagem a ser enviada.
         """
         try:
-            self.sock.sendto(mensagem.encode(), self.endereco_servidor)
-            self.logger.debug(f"Mensagem enviada: {mensagem}")
+            command = mensagem.split(";")[1]
+            if self._is_within_bounds(command):
+                self.sock.sendto(mensagem.encode(), self.endereco_servidor)
+                self.logger.debug(f"Mensagem enviada: {mensagem}")
+                # Atualiza posição simulada
+                if command == "up":
+                    self.pos_y -= 10
+                elif command == "down":
+                    self.pos_y += 10
+                elif command == "left":
+                    self.pos_x -= 10
+                elif command == "right":
+                    self.pos_x += 10
+            else:
+                self.logger.warning(f"Movimento '{command}' fora dos limites!")
         except socket.error as e:
             self.logger.error(f"Erro ao enviar mensagem: {e}")
 
@@ -68,15 +106,18 @@ class RobotSocketController:
         intervalo: float = 0.05
     ) -> None:
         """
-        Executa uma sequência de movimentos.
+        Executa uma sequência de movimentos, verificando os limites antes.
 
         Args:
             movimentos (List[str]): Lista de mensagens de movimento.
             intervalo (float): Tempo de espera entre movimentos.
         """
         for movimento in movimentos:
-            self._send_message(movimento)
-            time.sleep(intervalo)
+            if self._is_within_bounds(movimento.split(";")[1]):
+                self._send_message(movimento)
+                time.sleep(intervalo)
+            else:
+                self.logger.warning(f"Movimento '{movimento}' bloqueado por ultrapassar os limites.")
 
     def jump(self, direcao: Optional[str] = None) -> None:
         """
@@ -85,30 +126,21 @@ class RobotSocketController:
         Args:
             direcao (Optional[str]): Direção opcional do salto.
         """
-        # Movimentos de salto para cima
         movimentos_up = ["controle;up"] * self.altura
-
-        # Movimentos de salto para baixo
         movimentos_down = ["controle;down"] * self.altura
-
-        # Movimentos horizontais opcionais
         movimentos_horizontais = []
+
         if direcao:
             if direcao not in ["right", "left"]:
                 self.logger.error("Direção de salto inválida!")
                 return
-
             movimentos_horizontais = [f"controle;{direcao}"] * (self.distancia // 2)
 
-        # Executa sequência de movimentos
         try:
             self._executar_sequencia_movimentos(movimentos_up)
-
             if movimentos_horizontais:
                 self._executar_sequencia_movimentos(movimentos_horizontais)
-
             self._executar_sequencia_movimentos(movimentos_down)
-
         except Exception as e:
             self.logger.error(f"Erro durante o salto: {e}")
 
@@ -128,13 +160,8 @@ class RobotSocketController:
             if velocidade <= 0:
                 raise ValueError("Velocidade deve ser maior que zero.")
 
-            # Gera lista de mensagens de movimento
             movimentos = [f"controle;{comando}"] * self.distancia
-
-            for movimento in movimentos:
-                self._send_message(movimento)
-                time.sleep(1 / velocidade)
-
+            self._executar_sequencia_movimentos(movimentos, intervalo=(1 / velocidade))
         except ValueError as e:
             self.logger.error(f"Erro de execução: {e}")
             raise
@@ -154,18 +181,13 @@ class RobotSocketController:
             self.logger.error(error_msg)
             raise ValueError(error_msg)
 
-        # Determinar direção oposta
         direcao_oposta = "left" if direcao == "right" else "right"
-
         try:
-            # Movimento na direção especificada
             movimentos_direcao = [f"controle;{direcao}"] * self.distancia
             self._executar_sequencia_movimentos(movimentos_direcao)
 
-            # Movimento na direção oposta
             movimentos_oposto = [f"controle;{direcao_oposta}"] * self.distancia
             self._executar_sequencia_movimentos(movimentos_oposto)
-
         except Exception as e:
             self.logger.error(f"Erro durante dodge: {e}")
 
