@@ -121,26 +121,34 @@ class RobotSocketController:
 
     def jump(self, direcao: Optional[str] = None) -> None:
         """
-        Executa um salto do robô.
+        Executa um salto do robô com movimentação lateral intercalada após cada pulo.
 
         Args:
-            direcao (Optional[str]): Direção opcional do salto.
+            direcao (Optional[str]): Direção opcional do salto ("right" ou "left").
         """
-        movimentos_up = ["controle;up"] * self.altura
-        movimentos_down = ["controle;down"] * self.altura
-        movimentos_horizontais = []
-
         if direcao:
             if direcao not in ["right", "left"]:
                 self.logger.error("Direção de salto inválida!")
                 return
-            movimentos_horizontais = [f"controle;{direcao}"] * (self.distancia // 2)
-
         try:
-            self._executar_sequencia_movimentos(movimentos_up)
-            if movimentos_horizontais:
-                self._executar_sequencia_movimentos(movimentos_horizontais)
-            self._executar_sequencia_movimentos(movimentos_down)
+            # Movimento para cima com deslocamento lateral
+            for _ in range(self.altura):
+                self._executar_sequencia_movimentos(["controle;up"])
+                time.sleep(0.05)
+                if direcao:
+                    self._executar_sequencia_movimentos(
+                        [f"controle;{direcao}"])
+                    time.sleep(0.05)
+
+            # Movimento para baixo com deslocamento lateral
+            for _ in range(self.altura):
+                self._executar_sequencia_movimentos(["controle;down"])
+                time.sleep(0.05)
+                if direcao:
+                    self._executar_sequencia_movimentos(
+                        [f"controle;{direcao}"])
+                    time.sleep(0.05)
+
         except Exception as e:
             self.logger.error(f"Erro durante o salto: {e}")
 
