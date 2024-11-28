@@ -13,11 +13,12 @@ class RobotSocketController:
 
     def __init__(
         self,
-        server_host: str = "127.0.0.1",
-        server_port: int = 2024,
-        local_port: int = 2025,
-        distancia: int = 10,
-        altura: int = 10
+        server_host = "127.0.0.1",
+        server_port = 2024,
+        local_port = 2025,
+        distancia = 10,
+        altura = 10,
+        token = "Robozão"
     ):
         """
         Inicializa o controlador do robô.
@@ -54,25 +55,27 @@ class RobotSocketController:
         self.pos_x, self.pos_y = 400, 500  # Centrando na tela (800x600)
         self.screen_width, self.screen_height = 800, 600
 
-    def _is_within_bounds(self, direction: str) -> bool:
+    def _validar_movimento(self, dx: int, dy: int) -> bool:
         """
-        Verifica se o movimento mantém o robô dentro dos limites da tela.
+        Verifica se o movimento é válido, considerando os limites da tela.
 
         Args:
-            direction (str): Direção do movimento.
+            dx (int): Deslocamento no eixo X.
+            dy (int): Deslocamento no eixo Y.
 
         Returns:
             bool: True se o movimento está dentro dos limites, False caso contrário.
         """
-        if direction == "up" and self.pos_y - 45 >= 0:
+        novo_x = self.pos_x + dx
+        novo_y = self.pos_y + dy
+
+        if (40 <= novo_x <= (self.screen_width - 40)) and (40 <= novo_y <= (self.screen_height - 40)):
             return True
-        elif direction == "down" and self.pos_y + 45 <= self.screen_height:
-            return True
-        elif direction == "left" and self.pos_x - 45 >= 0:
-            return True
-        elif direction == "right" and self.pos_x + 45 <= self.screen_width:
-            return True
-        return False
+        else:
+            self.logger.warning(
+                f"Movimento inválido: Posição calculada ({novo_x}, {novo_y}) fora dos limites."
+            )
+            return False
 
     def _send_message(self, mensagem: str) -> None:
         """
@@ -83,28 +86,30 @@ class RobotSocketController:
         """
         try:
             command = mensagem.split(";")[1]
-            if self._is_within_bounds(command):
+
+            # Deslocamentos para cada direção
+            dx, dy = 0, 0
+            if command == "up":
+                dy = -self.distancia
+            elif command == "down":
+                dy = self.distancia
+            elif command == "left":
+                dx = -self.distancia
+            elif command == "right":
+                dx = self.distancia
+
+            # Verificação de limites
+            if self._validar_movimento(dx, dy):
                 self.sock.sendto(mensagem.encode(), self.endereco_servidor)
                 self.logger.debug(f"Mensagem enviada: {mensagem}")
-                # Atualiza posição simulada
-                if command == "up":
-                    self.pos_y -= 10
-                elif command == "down":
-                    self.pos_y += 10
-                elif command == "left":
-                    self.pos_x -= 10
-                elif command == "right":
-                    self.pos_x += 10
+                self.pos_x += dx
+                self.pos_y += dy
             else:
-                self.logger.warning(f"Movimento '{command}' fora dos limites!")
+                self.logger.warning(f"Movimento '{command}' bloqueado por ultrapassar os limites.")
         except socket.error as e:
             self.logger.error(f"Erro ao enviar mensagem: {e}")
 
-    def _executar_sequencia_movimentos(
-        self,
-        movimentos: List[str],
-        intervalo: float = 0.05
-    ) -> None:
+    def _executar_sequencia_movimentos(self, movimentos: List[str], intervalo: float = 0.05) -> None:
         """
         Executa uma sequência de movimentos, verificando os limites antes.
 
@@ -113,36 +118,59 @@ class RobotSocketController:
             intervalo (float): Tempo de espera entre movimentos.
         """
         for movimento in movimentos:
-            if self._is_within_bounds(movimento.split(";")[1]):
+            command = movimento.split(";")[1]
+
+            # Deslocamentos para cada comando
+            dx, dy = 0, 0
+            if command == "up":
+                dy = -self.distancia
+            elif command == "down":
+                dy = self.distancia
+            elif command == "left":
+                dx = -self.distancia
+            elif command == "right":
+                dx = self.distancia
+
+            # Verificação de limites antes de cada movimento
+            if self._validar_movimento(dx, dy):
                 self._send_message(movimento)
                 time.sleep(intervalo)
             else:
-                self.logger.warning(f"Movimento '{movimento}' bloqueado por ultrapassar os limites.")
+                self.logger.warning(f"Movimento '{command}' bloqueado por ultrapassar os limites.")
 
     def jump(self, direcao: Optional[str] = None) -> None:
         """
-        Executa um salto do robô.
+        Executa um salto do robô com movimentação lateral intercalada após cada pulo.
 
         Args:
-            direcao (Optional[str]): Direção opcional do salto.
+            direcao (Optional[str]): Direção opcional do salto ("right" ou "left").
         """
-        movimentos_up = ["controle;up"] * self.altura
-        movimentos_down = ["controle;down"] * self.altura
-        movimentos_horizontais = []
-
         if direcao:
             if direcao not in ["right", "left"]:
                 self.logger.error("Direção de salto inválida!")
                 return
-            movimentos_horizontais = [f"controle;{direcao}"] * (self.distancia // 2)
-
         try:
-            self._executar_sequencia_movimentos(movimentos_up)
-            if movimentos_horizontais:
-                self._executar_sequencia_movimentos(movimentos_horizontais)
-            self._executar_sequencia_movimentos(movimentos_down)
+            # Movimento para cima com deslocamento lateral
+            for _ in range(self.altura):
+                self._executar_sequencia_movimentos(["controle;up"])
+                time.sleep(0.005)
+                if direcao:
+                    self._executar_sequencia_movimentos(
+                        [f"controle;{direcao}"])
+                    time.sleep(0.005)
+
+            # Movimento para baixo com deslocamento lateral
+            for _ in range(self.altura):
+                self._executar_sequencia_movimentos(["controle;down"])
+                time.sleep(0.005)
+                if direcao:
+                    self._executar_sequencia_movimentos(
+                        [f"controle;{direcao}"])
+                    time.sleep(0.005)
+
         except Exception as e:
             self.logger.error(f"Erro durante o salto: {e}")
+
 
     def run(self, comando: str, velocidade: float) -> None:
         """
@@ -151,9 +179,6 @@ class RobotSocketController:
         Args:
             comando (str): Direção do movimento.
             velocidade (float): Velocidade do movimento.
-
-        Raises:
-            ValueError: Se velocidade for inválida.
         """
         try:
             velocidade = float(velocidade)
@@ -243,13 +268,10 @@ def main():
                 else:
                     # Comandos simples direcionais
                     controller._send_message(f"controle;{acao}")
-
-            except ValueError as e:
-                print(f"Erro de entrada: {e}")
-
-    except KeyboardInterrupt:
-        print("\nOperação interrompida pelo usuário.")
+            except Exception as e:
+                print(f"Erro no comando: {e}")
     finally:
         controller.close()
 
-main()
+if __name__ == "__main__":
+    main()
