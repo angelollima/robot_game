@@ -79,7 +79,7 @@ def receive_commands():
         try:
             data, _ = sock.recvfrom(4096)
             with command_lock:
-
+                print(f"Comando recebido: {data.decode('utf-8')}")
                 res = data.decode("utf-8").strip().lower().split(";")
                 if res[0] == "controle":
                     current_command = res[1]

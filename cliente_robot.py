@@ -18,7 +18,7 @@ class RobotSocketController:
         local_port = 2025,
         distancia = 10,
         altura = 10,
-        token = "Robozão"
+        
     ):
         """
         Inicializa o controlador do robô.
@@ -55,6 +55,21 @@ class RobotSocketController:
         self.pos_x, self.pos_y = 400, 500  # Centrando na tela (800x600)
         self.screen_width, self.screen_height = 800, 600
 
+    def mandarMovimento(self, movimento: str) -> None:
+        """
+        Envia um movimento para o servidor no formato especificado.
+
+        Args:
+            movimento (str): O movimento a ser enviado.
+        """
+        try:
+            mensagem = f"controle;{movimento}"
+            print(f"Enviando comando: {mensagem}")
+            sent = self.sock.sendto(mensagem.encode(), self.endereco_servidor)
+            print("Comando enviado")
+        except socket.error as e:
+            self.logger.error(f"Erro ao enviar comando: {e}")
+
     def _validar_movimento(self, dx: int, dy: int) -> bool:
         """
         Verifica se o movimento é válido, considerando os limites da tela.
@@ -69,7 +84,7 @@ class RobotSocketController:
         novo_x = self.pos_x + dx
         novo_y = self.pos_y + dy
 
-        if (40 <= novo_x <= (self.screen_width - 40)) and (40 <= novo_y <= (self.screen_height - 40)):
+        if (40 <= novo_x <= 760) and (40 <= novo_y <= 540):
             return True
         else:
             self.logger.warning(
@@ -100,12 +115,16 @@ class RobotSocketController:
 
             # Verificação de limites
             if self._validar_movimento(dx, dy):
+                novo_x = self.pos_x + dx
+                novo_y = self.pos_y + dy
+
+                # Atualize a posição apenas se válida
+                self.pos_x, self.pos_y = novo_x, novo_y
                 self.sock.sendto(mensagem.encode(), self.endereco_servidor)
                 self.logger.debug(f"Mensagem enviada: {mensagem}")
-                self.pos_x += dx
-                self.pos_y += dy
             else:
                 self.logger.warning(f"Movimento '{command}' bloqueado por ultrapassar os limites.")
+
         except socket.error as e:
             self.logger.error(f"Erro ao enviar mensagem: {e}")
 
@@ -170,6 +189,21 @@ class RobotSocketController:
 
         except Exception as e:
             self.logger.error(f"Erro durante o salto: {e}")
+
+    def walk(self, comando: str) -> None:
+        """
+        Executa movimento contínuo em uma direção.
+
+        Args:
+            comando (str): Direção do movimento.
+            velocidade (float): Velocidade do movimento.
+        """
+        try:
+            movimentos = [f"controle;{comando}"] * self.distancia
+            self._executar_sequencia_movimentos(movimentos, intervalo=(1 / 5))
+        except ValueError as e:
+            self.logger.error(f"Erro de execução: {e}")
+            raise
 
 
     def run(self, comando: str, velocidade: float) -> None:
@@ -241,6 +275,7 @@ def main():
                     "- Direcionais: up, down, left, right\n"
                     "- Saltos: [jump], [jump,right], [jump,left]\n"
                     "- Esquivas: [dodge,right], [dodge,left]\n"
+                    "- Andar: [walk,right], [walk,left]\n"
                     "- Corrida: [run,right,<velocidade>], [run,left,<velocidade>]\n"
                     "'q' para sair: "
                 ).strip().lower()
@@ -248,11 +283,23 @@ def main():
                 if acao == 'q':
                     break
 
-                if acao == 'jump':
+                # Usando a nova função mandarMovimento para comandos básicos
+                if acao in ["up", "down", "left", "right"]:
+                    controller.mandarMovimento(acao)
+                elif acao == "jump":
                     controller.jump()
                 elif acao.startswith("dodge,"):
-                    _, direcao = acao.split(",")
-                    controller.dodge(direcao)
+                    try:
+                        _, direcao = acao.split(",")
+                        controller.dodge(direcao)
+                    except ValueError:
+                        print("Comando inválido. Use: dodge,<direcao>")
+                elif acao.startswith("walk,"):
+                    try:
+                        _, direcao = acao.split(",")
+                        controller.walk(direcao)
+                    except ValueError:
+                        print("Comando inválido. Use: walk,<direcao>")
                 elif acao.startswith("run,"):
                     try:
                         _, direcao, velocidade = acao.split(",")
@@ -266,8 +313,7 @@ def main():
                     except ValueError:
                         print("Comando inválido. Use: jump,<direcao>")
                 else:
-                    # Comandos simples direcionais
-                    controller._send_message(f"controle;{acao}")
+                    print("Comando não reconhecido.")
             except Exception as e:
                 print(f"Erro no comando: {e}")
     finally:
